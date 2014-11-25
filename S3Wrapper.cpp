@@ -28,53 +28,6 @@ static S3Status responsePropertiesCallback
     return S3StatusOK;
 }
 
-// static void responseCompleteCallback(S3Status status,
-//                                      const S3ErrorDetails *error, 
-//                                      void *callbackData)
-// {
-// 	statusG = status;
-// }
-
-
-
-// static int putObjectDataCallback(int bufferSize, char *buffer,
-//                                  void *callbackData)
-// {
-// 	memmove(buffer, callbackData, bufferSize);
-//     return bufferSize;
-// }
-
-
-
-// void     S3Wrapper::uploadFile(uint32_t size, std::string &file_name, const void *data)
-// {
-//     S3PutObjectHandler putObjectHandler =
-//     {
-//         { &responsePropertiesCallback, &responseCompleteCallback },
-//         &putObjectDataCallback
-//     };
-
-//     do {
-//         S3_put_object(&this->_bucketContext, file_name.c_str(), size, 0, 0,
-//                       &putObjectHandler, const_cast<void*>(data));
-//     } while (S3_status_is_retryable(statusG));
-// }
-
-
-// void     S3Wrapper::getFile(std::string &&name)
-// {
-//     S3GetObjectHandler getObjectHandler =
-//     {
-//         { &responsePropertiesCallback, &responseCompleteCallback },
-//         &getObjectDataCallback
-//     };
-
-//     do {
-//         S3_get_object(&this->_bucketContext, name.c_str(), nullptr, 0,
-//     	0, nullptr, &getObjectHandler, nullptr);
-//     } while (S3_status_is_retryable(statusG));  
-// }
-
 S3Wrapper::S3Wrapper()
 {
 	S3Status status;
