@@ -1,16 +1,15 @@
 #ifndef __S3Wrapper__
 #define __S3Wrapper__
 
-#include <functional>
-
 #include <string>
 #include <vector>
+#include <iostream>
 
 #include <libs3.h>
 #include <cstring> //memmove
 
+#include "Blob.hpp"
 
-#define BUCKET_NAME "engine-test"
 #define PROTOCOL    S3ProtocolHTTPS
 #define URI_STYLE   S3UriStyleVirtualHost
 
@@ -22,18 +21,28 @@ class Wrapper {
 
 	C        _data;
 	S3Status _status;
+	int		 _index;
+	int      _contentSize;
 public:
-	Wrapper(C data) : _data(data){}
-	Wrapper(){}
+	Wrapper(C data, int contentSize) : _data(data), _index(0), _contentSize(contentSize) {} 
+	Wrapper(): _index(0), _contentSize(0) {}
 
 	static void responseCompleteCallback(S3Status status, const S3ErrorDetails *error, void *callbackData){
+		if (status != S3StatusOK)
+			std::cerr << S3_get_status_name(status) << " | " << error->message << " | " << std::endl;
 		reinterpret_cast<Wrapper*>(callbackData)->_status = status;
 	}
 
 	static int putObjectDataCallback(int bufferSize, char *buffer, void *callbackData){
-
-		memmove(buffer, reinterpret_cast<Wrapper*>(callbackData)->_data, bufferSize);
-	    return bufferSize;
+		Wrapper* self = reinterpret_cast<Wrapper*>(callbackData);
+		if (bufferSize >= self->_contentSize){
+			memmove(buffer, self->_data, self->_contentSize);
+			return self->_contentSize;
+		}
+		memmove(buffer, self->_data, bufferSize);
+		self->_contentSize -= bufferSize;
+		self->_data = static_cast<char*>(self->_data) + bufferSize;
+		return bufferSize;
 	}
 
 	static S3Status responsePropertiesCallback(const S3ResponseProperties *properties, void *callbackData){
@@ -51,7 +60,7 @@ using WrapperP = Wrapper<void*>;
 using WrapperG = Wrapper<std::vector<char>>;
 
 
-class S3Wrapper {
+class S3Wrapper : public Blob{
 	S3PutObjectHandler _putObjectHandler = {
 		   { &WrapperP::responsePropertiesCallback, &WrapperP::responseCompleteCallback }, &WrapperP::putObjectDataCallback
 		};
@@ -59,31 +68,14 @@ class S3Wrapper {
 	S3GetObjectHandler _getObjectHandler = {
         { &WrapperG::responsePropertiesCallback, &WrapperG::responseCompleteCallback }, &WrapperG::getObjectDataCallback
     };
+	S3BucketContext bucketContext;
 
-	S3Wrapper();
-	S3BucketContext _bucketContext;
 public:
 	~S3Wrapper();
-	static S3Wrapper   &getS3Wrapper();
+	S3Wrapper(std::string & bucketName);
 
-	template<typename T> 
-	void putBinaryData(uint32_t size, std::string name, T* data){
-		WrapperP wrapper(const_cast<void*>( static_cast<void const*>(data)));
-		do {
-		    S3_put_object(&_bucketContext, name.c_str(), size, 0, 0,
-		                  &_putObjectHandler, &wrapper);
-		} while (S3_status_is_retryable(wrapper._status));
-	}
-
-	template<typename T>
-	T   getFile(std::string name){
-		WrapperG wrapper;
-	    do {
-	        S3_get_object(&_bucketContext, name.c_str(), nullptr, 0,
-	    	0, nullptr, &_getObjectHandler, &wrapper);
-	    } while (S3_status_is_retryable(wrapper._status));
-	    return T(wrapper._data.data());
-	}
+	virtual void putBinaryData(std::string name, const void * data, uint32_t size) const; //size * sizeof(T)
+	virtual void  getFile(std::string name, std::vector<char>&) const;
 
 };
 
